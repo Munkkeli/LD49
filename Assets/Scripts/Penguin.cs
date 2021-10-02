@@ -30,11 +30,15 @@ public class Penguin : MonoBehaviour {
     private float _fidgetTimer = 0;
 
     private SpriteRenderer _renderer;
+    private Collider2D _collider;
+    private Rigidbody2D _rigidbody;
 
     public bool isAtGoal = true;
     
     private void Awake() {
         _renderer = GetComponent<SpriteRenderer>();
+        _collider = GetComponent<Collider2D>();
+        _rigidbody = GetComponent<Rigidbody2D>();
         
         _groundOffset = groundOffset + Random.Range(-0.1f, 0f);
         
@@ -56,6 +60,12 @@ public class Penguin : MonoBehaviour {
 
     // Update is called once per frame
     void Update() {
+        if (Controller.instance.isFail) {
+            _collider.enabled = true;
+            _rigidbody.bodyType = RigidbodyType2D.Dynamic;
+            return;
+        }
+
         Vector3 position = transform.position;
         
         Vector2 goal = State switch {
@@ -92,9 +102,13 @@ public class Penguin : MonoBehaviour {
             
             ResetFidgetTimer();
         }
+        
+        transform.rotation = Quaternion.Euler(0, 0, Controller.instance.camera.transform.rotation.eulerAngles.z);
     }
 
     private void FixedUpdate() {
+        if (Controller.instance.isFail) return;
+        
         Vector3 position = transform.position;
         
         RaycastHit2D hit = Physics2D.Raycast(position, Vector2.down, 10f);

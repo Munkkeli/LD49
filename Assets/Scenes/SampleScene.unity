@@ -10517,7 +10517,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   from: 1
   to: 3
-  repeatSpeed: 1
 --- !u!1 &791219299
 GameObject:
   m_ObjectHideFlags: 0
@@ -15995,6 +15994,7 @@ GameObject:
   m_Component:
   - component: {fileID: 972643238}
   - component: {fileID: 972643237}
+  - component: {fileID: 972643239}
   m_Layer: 0
   m_Name: controller
   m_TagString: Untagged
@@ -16015,6 +16015,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   difficulty: 0
+  _risingDifficulty: 0
   camera: {fileID: 519420031}
   icebergAudio: {fileID: 416038697}
   penguinPrefab: {fileID: 4734194636249443775, guid: 2f7438f2b9aa94146acbbf49c0c5221f, type: 3}
@@ -16051,6 +16052,7 @@ MonoBehaviour:
   penguinCount: 20
   leftOrca: {fileID: 1795827130}
   rightOrca: {fileID: 1621187998}
+  isFail: 0
 --- !u!4 &972643238
 Transform:
   m_ObjectHideFlags: 0
@@ -16065,6 +16067,29 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &972643239
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 972643236}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 595c992c6227cc04b9424654a9e66367, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fishText: {fileID: 1436263072}
+  penguinText: {fileID: 816915038}
+  leftText: {fileID: 1019010575}
+  middleText: {fileID: 25037608}
+  rightText: {fileID: 2136571650}
+  leftAlarm: {fileID: 2113136535}
+  middleAlarm: {fileID: 2128927773}
+  rightAlarm: {fileID: 580030102}
+  fishAlarm: {fileID: 820756279}
+  winText: {fileID: 1935267354}
+  failText: {fileID: 1034298674}
 --- !u!1 &973501548
 GameObject:
   m_ObjectHideFlags: 0
@@ -16534,7 +16559,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   from: 2
   to: 1
-  repeatSpeed: 1
 --- !u!1 &1177970127
 GameObject:
   m_ObjectHideFlags: 0
@@ -16972,7 +16996,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   from: 1
   to: 2
-  repeatSpeed: 1
 --- !u!114 &1621187998 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3096391302509195016, guid: 0ce225bafe226444b9e75eda9a1e1b71, type: 3}
@@ -17119,7 +17142,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   from: 3
   to: 1
-  repeatSpeed: 1
 --- !u!114 &1795827130 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3096391302509195016, guid: 0ce225bafe226444b9e75eda9a1e1b71, type: 3}

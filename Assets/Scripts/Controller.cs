@@ -1,12 +1,23 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using JetBrains.Annotations;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.UI;
 using Random = UnityEngine.Random;
+
+public struct PenguinCount {
+    public int left;
+    public int middle;
+    public int right;
+
+    public int Total => left + middle + right;
+}
+
+public struct FailState {
+    public bool isIcebergFailNear;
+    public bool isFishFailNear;
+
+    public bool Any => isIcebergFailNear || isFishFailNear;
+}
 
 public class Controller : MonoBehaviour {
     public static Controller instance;
@@ -19,44 +30,38 @@ public class Controller : MonoBehaviour {
     public GameObject penguinPrefab;
 
     public AudioClip[] iceSlushSounds;
+    public AudioClip alarmSound;
+    public AudioClip orcaAlarmSound;
+
+    public AudioSource alarmSource;
     
     public Transform spawnPoint;
     public Transform leftFishing;
     public Transform rightFishing;
-
-    public Text leftText;
-    public Text middleText;
-    public Text rightText;
     
-    public UnityEngine.UI.Button leftAlarm;
-    public UnityEngine.UI.Button middleAlarm;
-    public UnityEngine.UI.Button rightAlarm;
-
-    public Text fishText;
-    public Text penguinText;
-
-    public GameObject winText;
-    public GameObject failText;
-
     public ParticleSystem leftFishParticles;
     public ParticleSystem rightFishParticles;
-
-    public GameObject fishAlarm;
+    public ParticleSystem heartParticles;
 
     public Transform[] rotateWithCamera;
     
     private readonly List<Penguin> _penguins = new List<Penguin>();
+
+    public PenguinCount penguinCounts = new PenguinCount();
+    public FailState failState = new FailState();
 
     private Transform _cameraTransform;
     public float _icebergTilt = 0;
     public float _icebergTiltModifier = 0;
     private float _icebergTiltSoundCooldown = 0;
     private float _icebergSinTime = 0;
+    private float _currentTiltRotation;
+    private float _icebergTiltVel;
+    private float _icebergFailTimer = 0f;
+
+    private float _orcaAlarmCooldown = 0f;
 
     private float _penguinSpawnCooldown = 1f;
-
-    private float _flashTimer = 1f;
-    private bool _flashState = true;
 
     public float fishCount = 100;
     public int penguinCount = 10;
@@ -66,19 +71,18 @@ public class Controller : MonoBehaviour {
 
     private int _orcaSideBias = 0;
 
-    private bool _isIcebergFailNear = false;
-    private float _icebergFailTimer = 0f;
-    
-    private bool _isFishFailNear = false;
-    private bool _isPenguinFailNear = false;
+    private AudioSource _leftOrcaAudio;
+    private AudioSource _rightOrcaAudio;
 
     private ParticleSystem.EmissionModule _leftFishEmission;
     private ParticleSystem.EmissionModule _rightFishEmission;
-
+    private ParticleSystem.EmissionModule _heartEmission;
+    
     private ParticleSystem.MinMaxCurve _leftFishEmissionCurve;
     private ParticleSystem.MinMaxCurve _rightFishEmissionCurve;
+    private ParticleSystem.MinMaxCurve _heartEmissionCurve;
 
-    private bool _isFail = false;
+    public bool isFail = false;
 
     private float _orcaAttackCooldown = 30f;
     
@@ -105,37 +109,12 @@ public class Controller : MonoBehaviour {
         _rightFishEmissionCurve = new ParticleSystem.MinMaxCurve(10);
         _rightFishEmission.rateOverTime = _rightFishEmissionCurve;
 
-        // leftPlus.onClick.AddListener(() => {
-        //     Penguin? penguin = GetPenguin(PenguinState.Idle, PenguinState.Left);
-        //     if (penguin != null) penguin.State = PenguinState.Left;
-        // });
-        //
-        // leftMinus.onClick.AddListener(() => {
-        //     Penguin? penguin = GetPenguin(PenguinState.Left, PenguinState.Idle);
-        //     if (penguin != null) penguin.State = PenguinState.Idle;
-        // });
-        //
-        // // leftAlarm.onClick.AddListener(() => {
-        // //     foreach (Penguin penguin in _penguins.Where(penguin => penguin.State == PenguinState.Left)) {
-        // //         penguin.State = PenguinState.Idle;
-        // //     }
-        // // });
-        //
-        // rightPlus.onClick.AddListener(() => {
-        //     Penguin? penguin = GetPenguin(PenguinState.Idle, PenguinState.Right);
-        //     if (penguin != null) penguin.State = PenguinState.Right;
-        // });
-        //
-        // rightMinus.onClick.AddListener(() => {
-        //     Penguin? penguin = GetPenguin(PenguinState.Right, PenguinState.Idle);
-        //     if (penguin != null) penguin.State = PenguinState.Idle;
-        // });
-        //
-        // // rightAlarm.onClick.AddListener(() => {
-        // //     foreach (Penguin penguin in _penguins.Where(penguin => penguin.State == PenguinState.Right)) {
-        // //         penguin.State = PenguinState.Idle;
-        // //     }
-        // // });
+        _heartEmission = heartParticles.emission;
+        _heartEmissionCurve = new ParticleSystem.MinMaxCurve(10);
+        _heartEmission.rateOverTime = _heartEmissionCurve;
+
+        _leftOrcaAudio = leftFishing.GetComponent<AudioSource>();
+        _rightOrcaAudio = rightFishing.GetComponent<AudioSource>();
     }
 
     private void UpdateIcebergTilt() {
@@ -163,11 +142,11 @@ public class Controller : MonoBehaviour {
 
         _icebergTilt = Mathf.Clamp(totalTilt, -1f, 1f);
 
-        _isIcebergFailNear = Math.Abs(_icebergTilt) > 0.8f;
+        failState.isIcebergFailNear = Math.Abs(_icebergTilt) > 0.8f;
 
-        leftText.text = $"{left}";
-        middleText.text = $"{middle}";
-        rightText.text = $"{right}";
+        penguinCounts.left = left;
+        penguinCounts.middle = middle;
+        penguinCounts.right = right;
     }
 
     private void CreatePenguin() {
@@ -187,17 +166,39 @@ public class Controller : MonoBehaviour {
 
     // Update is called once per frame
     void Update() {
-        if (_isFail) {
-            failText.SetActive(true);
-           // return;
+        if (isFail) {
+            Physics2D.gravity = _cameraTransform.rotation * Vector2.down *4f;
+            return;
+        };
+
+        if (failState.Any && !alarmSource.isPlaying) {
+            alarmSource.PlayOneShot(alarmSound);
         }
 
-        float tiltRotation = 24 * -_icebergTilt;
-        
-        _cameraTransform.rotation = Quaternion.Euler(0, 0, tiltRotation);
+        if (leftOrca.State == OrcaState.Attacking || rightOrca.State == OrcaState.Attacking) {
+            _orcaAlarmCooldown -= Time.deltaTime;
+        }
+        else {
+            _orcaAlarmCooldown = 0f;
+        }
 
+        if (leftOrca.State == OrcaState.Attacking && _orcaAlarmCooldown <= 0) {
+            _leftOrcaAudio.PlayOneShot(orcaAlarmSound);
+            _orcaAlarmCooldown = 0.5f;
+        }
+        
+        if (rightOrca.State == OrcaState.Attacking && _orcaAlarmCooldown <= 0) {
+            _rightOrcaAudio.PlayOneShot(orcaAlarmSound);
+            _orcaAlarmCooldown = 0.5f;
+        }
+
+        float targetTiltRotation = 24 * -_icebergTilt;
+        _currentTiltRotation = Mathf.SmoothDamp(_currentTiltRotation, targetTiltRotation, ref _icebergTiltVel,
+           1f);
+        
+        _cameraTransform.rotation = Quaternion.Euler(0, 0, _currentTiltRotation);
         foreach (Transform _transform in rotateWithCamera) {
-            _transform.rotation = Quaternion.Euler(0, 0, tiltRotation);
+            _transform.rotation = Quaternion.Euler(0, 0, _currentTiltRotation);
         }
 
         _icebergTiltSoundCooldown -= Time.deltaTime;
@@ -220,39 +221,24 @@ public class Controller : MonoBehaviour {
         penguinCount = _penguins.Count;
         fishCount += fishIncrement - fishDecrement;
 
-        _isFishFailNear = fishCount < 20;
+        failState.isFishFailNear = fishCount < 20 && (fishIncrement - fishDecrement) < 0;
+        
+        _heartEmission.rateOverTimeMultiplier = middle * 0.5f;
 
-        fishText.text = $"{Math.Max(0, Math.Round(fishCount, 2))}";
-        penguinText.text = $"{penguinCount}";
-
-        _penguinSpawnCooldown -= Time.deltaTime * middle * 0.03f;
+        _penguinSpawnCooldown -= Time.deltaTime * middle * 0.02f;
         if (_penguinSpawnCooldown <= 0) {
             _penguinSpawnCooldown = 1f;
             CreatePenguin();
         }
 
-        _flashTimer -= Time.deltaTime;
-        if (_flashTimer <= 0) {
-            _flashTimer = 0.05f;
-            _flashState = !_flashState;
-            
-            // failText.SetActive(_flashState);
-        }
-
-        middleAlarm.gameObject.SetActive(_isIcebergFailNear && _flashState);
-        fishAlarm.SetActive(_isFishFailNear && _flashState);
-        
-        leftAlarm.gameObject.SetActive(leftOrca.State == OrcaState.Attacking && _flashState);
-        rightAlarm.gameObject.SetActive(rightOrca.State == OrcaState.Attacking && _flashState);
-
         if (fishCount < 0) {
-            _isFail = true;
+            isFail = true;
         }
 
         if (Mathf.Abs(_icebergTilt) >= 1f) {
             _icebergFailTimer += Time.deltaTime;
             if (_icebergFailTimer > 3f) {
-                _isFail = true;
+                isFail = true;
             }
         }
         else {
@@ -274,8 +260,10 @@ public class Controller : MonoBehaviour {
             }
         }
 
+        float difficultyPenguinCount = Mathf.Max(0, penguinCount - 20f);
+        float penguinDifficulty = Math.Min(1f, (difficultyPenguinCount * 2.2f) / 100f);
         _risingDifficulty += Time.deltaTime * 0.01f;
-        difficulty = ((penguinCount / 100f) * 4f) + _risingDifficulty;
+        difficulty = (penguinDifficulty * 5.5f) + _risingDifficulty;
     }
 
     private void FixedUpdate() {
