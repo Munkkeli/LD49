@@ -84,7 +84,7 @@ public class Penguin : MonoBehaviour {
         };
         
         float distanceToGoal = position.x - (goal.x + _goalOffset);
-        isAtGoal = !(Mathf.Abs(distanceToGoal) > 0.01f);
+        isAtGoal = !(Mathf.Abs(distanceToGoal) > 0.03f);
 
         if (!isAtGoal) {
             float translation = (distanceToGoal < 0 ? movementSpeed : -movementSpeed) * Time.deltaTime;
