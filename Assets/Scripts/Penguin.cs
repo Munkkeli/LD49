@@ -36,6 +36,8 @@ public class Penguin : MonoBehaviour {
     private Rigidbody2D _rigidbody;
     private AudioSource _audioSource;
 
+    private float _waddleOffset = 0;
+
     public bool isAtGoal = true;
     
     private void Awake() {
@@ -45,6 +47,8 @@ public class Penguin : MonoBehaviour {
         _audioSource = GetComponent<AudioSource>();
         
         _groundOffset = groundOffset + Random.Range(-0.1f, 0f);
+        
+        _waddleOffset = Random.Range(-10f, 10f);
         
         ResetGoalOffset();
         ResetFidgetTimer();
@@ -106,8 +110,10 @@ public class Penguin : MonoBehaviour {
             
             ResetFidgetTimer();
         }
+
+        float waddleRotation = isAtGoal ? 0 : Mathf.Sin((Time.time * 10f) + _waddleOffset) * 10f;
         
-        transform.rotation = Quaternion.Euler(0, 0, Controller.instance.camera.transform.rotation.eulerAngles.z);
+        transform.rotation = Quaternion.Euler(0, 0, Controller.instance.camera.transform.rotation.eulerAngles.z + waddleRotation);
     }
 
     private void FixedUpdate() {

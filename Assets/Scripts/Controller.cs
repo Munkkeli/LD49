@@ -56,6 +56,7 @@ public class Controller : MonoBehaviour {
     public GameObject penguinPrefab;
 
     public AudioClip[] iceSlushSounds;
+    public AudioClip[] fishBlubSounds;
     public AudioClip alarmSound;
     public AudioClip orcaAlarmSound;
 
@@ -99,6 +100,9 @@ public class Controller : MonoBehaviour {
 
     private AudioSource _leftOrcaAudio;
     private AudioSource _rightOrcaAudio;
+    
+    private AudioSource _leftFishAudio;
+    private AudioSource _rightFishAudio;
 
     private ParticleSystem.EmissionModule _leftFishEmission;
     private ParticleSystem.EmissionModule _rightFishEmission;
@@ -114,6 +118,7 @@ public class Controller : MonoBehaviour {
     private float _orcaAttackCooldown = 30f;
 
     private float _penguinSqueakCooldown = 1f;
+    public float _fishBlubCooldown = 1f;
     
     private Penguin? GetPenguin(PenguinState state, PenguinState direction) {
         Penguin? match = _penguins.FirstOrDefault(penguin => penguin.State == state);
@@ -147,10 +152,13 @@ public class Controller : MonoBehaviour {
 
         _leftOrcaAudio = leftFishing.GetComponent<AudioSource>();
         _rightOrcaAudio = rightFishing.GetComponent<AudioSource>();
+
+        _leftFishAudio = leftFishParticles.GetComponent<AudioSource>();
+        _rightFishAudio = rightFishParticles.GetComponent<AudioSource>();
     }
 
     private void UpdateIcebergTilt() {
-        float icebergDifficulty = Mathf.Min(0.25f, difficulty * 0.012f);
+        float icebergDifficulty = Mathf.Min(0.25f, difficulty * 0.01f);
 
         _icebergSinTime += Time.deltaTime * (0.1f + icebergDifficulty);
         icebergTiltModifier = Mathf.Sin(_icebergSinTime) * 1f;
@@ -270,6 +278,12 @@ public class Controller : MonoBehaviour {
             CreatePenguin();
         }
 
+        _fishBlubCooldown -= Time.deltaTime * Math.Min(10f, Math.Max(0, fishIncrement * 1400f));
+        if (_fishBlubCooldown <= 0) {
+            _fishBlubCooldown = 1f;
+            FishBlub();
+        }
+
         if (fishCount < 0) {
             FailGame(FailReason.Fish);
             return;
@@ -364,5 +378,14 @@ public class Controller : MonoBehaviour {
         State = GameState.Fail;
         
         isFail = true;
+    }
+    
+    public void FishBlub() {
+        AudioSource audioSource = Random.value > 0.5f ? _leftFishAudio : _rightFishAudio;
+        if (audioSource.isPlaying) return;
+        
+        audioSource.pitch = Random.Range(1f, 1.2f);
+        audioSource.volume = Random.Range(0.8f, 1f);
+        audioSource.PlayOneShot(fishBlubSounds[Random.Range(0, fishBlubSounds.Length)]);
     }
 }
