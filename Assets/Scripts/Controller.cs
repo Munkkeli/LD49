@@ -4,6 +4,21 @@ using System.Linq;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
+public enum GameState {
+    Intro = 1,
+    Criteria = 2,
+    Tutorial = 3,
+    Game = 4,
+    Fail = 5,
+    Win = 6,
+}
+
+public enum FailReason {
+    Fish = 1,
+    Penguin = 2,
+    Iceberg = 3,
+}
+
 public struct PenguinCount {
     public int left;
     public int middle;
@@ -16,14 +31,25 @@ public struct FailState {
     public bool isIcebergFailNear;
     public bool isFishFailNear;
 
+    public FailReason reason;
+    
     public bool Any => isIcebergFailNear || isFishFailNear;
 }
 
 public class Controller : MonoBehaviour {
     public static Controller instance;
 
+    public GameState State {
+        get => _state;
+        set {
+            _state = value;
+            UIController.instance.ChangeState(value);
+        }
+    }
+    private GameState _state = GameState.Intro;
+
     public float difficulty = 0f;
-    public float _risingDifficulty = 0f;
+    public float risingDifficulty = 0f;
 
     public Camera camera;
     public AudioSource icebergAudio;
@@ -51,8 +77,8 @@ public class Controller : MonoBehaviour {
     public FailState failState = new FailState();
 
     private Transform _cameraTransform;
-    public float _icebergTilt = 0;
-    public float _icebergTiltModifier = 0;
+    public float icebergTilt = 0;
+    public float icebergTiltModifier = 0;
     private float _icebergTiltSoundCooldown = 0;
     private float _icebergSinTime = 0;
     private float _currentTiltRotation;
@@ -83,8 +109,11 @@ public class Controller : MonoBehaviour {
     private ParticleSystem.MinMaxCurve _heartEmissionCurve;
 
     public bool isFail = false;
+    public bool isWin = false;
 
     private float _orcaAttackCooldown = 30f;
+
+    private float _penguinSqueakCooldown = 1f;
     
     private Penguin? GetPenguin(PenguinState state, PenguinState direction) {
         Penguin? match = _penguins.FirstOrDefault(penguin => penguin.State == state);
@@ -104,24 +133,27 @@ public class Controller : MonoBehaviour {
         _leftFishEmission = leftFishParticles.emission;
         _leftFishEmissionCurve = new ParticleSystem.MinMaxCurve(10);
         _leftFishEmission.rateOverTime = _leftFishEmissionCurve;
+        _leftFishEmission.rateOverTimeMultiplier = 0;
 
         _rightFishEmission = rightFishParticles.emission;
         _rightFishEmissionCurve = new ParticleSystem.MinMaxCurve(10);
         _rightFishEmission.rateOverTime = _rightFishEmissionCurve;
+        _rightFishEmission.rateOverTimeMultiplier = 0;
 
         _heartEmission = heartParticles.emission;
         _heartEmissionCurve = new ParticleSystem.MinMaxCurve(10);
         _heartEmission.rateOverTime = _heartEmissionCurve;
+        _heartEmission.rateOverTimeMultiplier = 0;
 
         _leftOrcaAudio = leftFishing.GetComponent<AudioSource>();
         _rightOrcaAudio = rightFishing.GetComponent<AudioSource>();
     }
 
     private void UpdateIcebergTilt() {
-        float icebergDifficulty = Mathf.Min(0.25f, difficulty * 0.008f);
+        float icebergDifficulty = Mathf.Min(0.25f, difficulty * 0.012f);
 
         _icebergSinTime += Time.deltaTime * (0.1f + icebergDifficulty);
-        _icebergTiltModifier = Mathf.Sin(_icebergSinTime) * 1f;
+        icebergTiltModifier = Mathf.Sin(_icebergSinTime) * 1f;
 
         float center = spawnPoint.transform.position.x;
 
@@ -138,11 +170,11 @@ public class Controller : MonoBehaviour {
         });
 
         float penguinTilt = (totalWeight / _penguins.Count) / 8f;
-        float totalTilt = penguinTilt + _icebergTiltModifier;
+        float totalTilt = penguinTilt + icebergTiltModifier;
 
-        _icebergTilt = Mathf.Clamp(totalTilt, -1f, 1f);
+        icebergTilt = Mathf.Clamp(totalTilt, -1f, 1f);
 
-        failState.isIcebergFailNear = Math.Abs(_icebergTilt) > 0.8f;
+        failState.isIcebergFailNear = Math.Abs(icebergTilt) > 0.8f;
 
         penguinCounts.left = left;
         penguinCounts.middle = middle;
@@ -166,6 +198,14 @@ public class Controller : MonoBehaviour {
 
     // Update is called once per frame
     void Update() {
+        if (_state != GameState.Game && _state != GameState.Fail) return;
+        
+        penguinCount = _penguins.Count;
+        if (penguinCount >= 100 && !isWin) {
+            State = GameState.Win;
+            isWin = true;
+        }
+        
         if (isFail) {
             Physics2D.gravity = _cameraTransform.rotation * Vector2.down *4f;
             return;
@@ -192,20 +232,20 @@ public class Controller : MonoBehaviour {
             _orcaAlarmCooldown = 0.5f;
         }
 
-        float targetTiltRotation = 24 * -_icebergTilt;
+        float targetTiltRotation = 24 * -icebergTilt;
         _currentTiltRotation = Mathf.SmoothDamp(_currentTiltRotation, targetTiltRotation, ref _icebergTiltVel,
            1f);
         
         _cameraTransform.rotation = Quaternion.Euler(0, 0, _currentTiltRotation);
-        foreach (Transform _transform in rotateWithCamera) {
-            _transform.rotation = Quaternion.Euler(0, 0, _currentTiltRotation);
+        foreach (Transform transform in rotateWithCamera) {
+            transform.rotation = Quaternion.Euler(0, 0, _currentTiltRotation);
         }
 
         _icebergTiltSoundCooldown -= Time.deltaTime;
-        if (Math.Abs(_icebergTilt) > 0.1 && _icebergTiltSoundCooldown <= 0) {
+        if (Math.Abs(icebergTilt) > 0.1 && _icebergTiltSoundCooldown <= 0) {
             _icebergTiltSoundCooldown = Random.Range(2f, 6f);
             icebergAudio.transform.position = (Vector2)spawnPoint.position + (Random.insideUnitCircle * 3f);
-            icebergAudio.PlayOneShot(iceSlushSounds[Random.Range(0, iceSlushSounds.Length)], Math.Abs(_icebergTilt) * 10f);
+            icebergAudio.PlayOneShot(iceSlushSounds[Random.Range(0, iceSlushSounds.Length)], Math.Abs(icebergTilt) * 0.9f);
         }
 
         int left = _penguins.Count(penguin => penguin.State == PenguinState.Left);
@@ -217,28 +257,33 @@ public class Controller : MonoBehaviour {
 
         _leftFishEmission.rateOverTimeMultiplier = left * 0.5f;
         _rightFishEmission.rateOverTimeMultiplier = right * 0.5f;
-
-        penguinCount = _penguins.Count;
+        
         fishCount += fishIncrement - fishDecrement;
 
         failState.isFishFailNear = fishCount < 20 && (fishIncrement - fishDecrement) < 0;
         
         _heartEmission.rateOverTimeMultiplier = middle * 0.5f;
 
-        _penguinSpawnCooldown -= Time.deltaTime * middle * 0.02f;
+        _penguinSpawnCooldown -= Time.deltaTime * middle * 0.03f;
         if (_penguinSpawnCooldown <= 0) {
             _penguinSpawnCooldown = 1f;
             CreatePenguin();
         }
 
         if (fishCount < 0) {
-            isFail = true;
+            FailGame(FailReason.Fish);
+            return;
+        }
+        
+        if (penguinCount <= 0) {
+            FailGame(FailReason.Penguin);
+            return;
         }
 
-        if (Mathf.Abs(_icebergTilt) >= 1f) {
+        if (Mathf.Abs(icebergTilt) >= 1f) {
             _icebergFailTimer += Time.deltaTime;
             if (_icebergFailTimer > 3f) {
-                isFail = true;
+                FailGame(FailReason.Iceberg);
             }
         }
         else {
@@ -260,13 +305,31 @@ public class Controller : MonoBehaviour {
             }
         }
 
+        _penguinSqueakCooldown -= Time.deltaTime;
+        if (_penguinSqueakCooldown <= 0) {
+            float penguinDecrease = Mathf.Min(1f, penguinCount / 90f);
+            float tiltDecrease = Mathf.Min(5f, Mathf.Abs(icebergTilt) * 5f);
+            float orcaDecrease = 0;
+            if (leftOrca.State == OrcaState.Attacking) {
+                orcaDecrease = Mathf.Max(0, Mathf.Min(5f, 5f - Math.Abs(leftFishing.position.x - leftOrca.transform.position.x)));
+            }
+            if (rightOrca.State == OrcaState.Attacking) {
+                orcaDecrease = Mathf.Max(0, Mathf.Min(5f, 5f - Math.Abs(rightFishing.position.x - rightOrca.transform.position.x)));
+            }
+
+            _penguins[Random.Range(0, _penguins.Count)].Squeak();
+            
+            _penguinSqueakCooldown = Mathf.Max(0.1f, 5.2f - (penguinDecrease + tiltDecrease + orcaDecrease)) + Random.Range(-0.3f, 0.2f);
+        }
+
         float difficultyPenguinCount = Mathf.Max(0, penguinCount - 20f);
-        float penguinDifficulty = Math.Min(1f, (difficultyPenguinCount * 2.2f) / 100f);
-        _risingDifficulty += Time.deltaTime * 0.01f;
-        difficulty = (penguinDifficulty * 5.5f) + _risingDifficulty;
+        float penguinDifficulty = Math.Min(1f, (difficultyPenguinCount * 2.8f) / 90f);
+        risingDifficulty += Time.deltaTime * 0.01f;
+        difficulty = (penguinDifficulty * 5.5f) + risingDifficulty;
     }
 
     private void FixedUpdate() {
+        if (_state != GameState.Game) return;
         UpdateIcebergTilt();
     }
 
@@ -290,5 +353,16 @@ public class Controller : MonoBehaviour {
     public void OrderPenguin(PenguinState from, PenguinState to) {
         Penguin? penguin = GetPenguin(from, to);
         if (penguin != null) penguin.State = to;
+    }
+
+    private void FailGame(FailReason reason) {
+        _leftFishEmission.enabled = false;
+        _rightFishEmission.enabled = false;
+        _heartEmission.enabled = false;
+
+        failState.reason = reason;
+        State = GameState.Fail;
+        
+        isFail = true;
     }
 }

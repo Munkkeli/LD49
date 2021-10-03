@@ -15,6 +15,8 @@ public class Penguin : MonoBehaviour {
     public float groundOffset = 1f;
     public float movementSpeed = 0.5f;
 
+    public AudioClip[] squeakSounds;
+
     public PenguinState State {
         get => _state;
         set {
@@ -32,6 +34,7 @@ public class Penguin : MonoBehaviour {
     private SpriteRenderer _renderer;
     private Collider2D _collider;
     private Rigidbody2D _rigidbody;
+    private AudioSource _audioSource;
 
     public bool isAtGoal = true;
     
@@ -39,6 +42,7 @@ public class Penguin : MonoBehaviour {
         _renderer = GetComponent<SpriteRenderer>();
         _collider = GetComponent<Collider2D>();
         _rigidbody = GetComponent<Rigidbody2D>();
+        _audioSource = GetComponent<AudioSource>();
         
         _groundOffset = groundOffset + Random.Range(-0.1f, 0f);
         
@@ -107,7 +111,7 @@ public class Penguin : MonoBehaviour {
     }
 
     private void FixedUpdate() {
-        if (Controller.instance.isFail) return;
+        // if (Controller.instance.isFail) return;
         
         Vector3 position = transform.position;
         
@@ -116,5 +120,12 @@ public class Penguin : MonoBehaviour {
         if (hit) {
             transform.position = new Vector3(position.x, hit.point.y + _groundOffset, position.z);
         }
+    }
+
+    public void Squeak() {
+        if (_audioSource.isPlaying) return;
+        _audioSource.pitch = Random.Range(1.1f, 1.5f);
+        _audioSource.volume = Random.Range(0.1f, 0.3f);
+        _audioSource.PlayOneShot(squeakSounds[Random.Range(0, squeakSounds.Length)]);
     }
 }
