@@ -50,7 +50,7 @@ public class Orca : MonoBehaviour {
         
         float distanceToGoal = position.x - goal.x;
         float distanceFromAttack = position.x - attackPoint.position.x;
-        bool isAtGoal = !(Mathf.Abs(distanceToGoal) > 0.01f);
+        bool isAtGoal = !(Mathf.Abs(distanceToGoal) > 0.03f);
 
         if (!isAtGoal) {
             float translation = (distanceToGoal < 0 ? movementSpeed : -movementSpeed) * Time.deltaTime;
